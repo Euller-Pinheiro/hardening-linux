@@ -17,3 +17,6 @@
   ansible.builtin.include_tasks: fail2ban.yml
   when: hardening_fail2ban_enabled | bool
 
+- name: Liga as atualizações automáticas de segurança
+  ansible.builtin.include_tasks: auto_updates.yml
+  when: hardening_auto_updates_enabled | bool

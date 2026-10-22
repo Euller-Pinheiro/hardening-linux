@@ -84,3 +84,16 @@ hardening_fail2ban_bantime_maxtime: 1w
 # da VPN de administração; assim um erro de senha não bloqueia quem administra.
 hardening_fail2ban_ignoreip: []
 
+# ---------------------------------------------------------------------------
+# Atualizações automáticas de segurança (unattended-upgrades)
+# ---------------------------------------------------------------------------
+# Reinício automático fica DESLIGADO por padrão: reiniciar um servidor de
+# produção é decisão do administrador. Ligue se o servidor tolera reinício
+# na janela abaixo (ex.: um nó atrás de balanceador).
+hardening_auto_updates_reboot: false
+hardening_auto_updates_reboot_time: "04:00"
+hardening_auto_updates_remove_unused_kernels: true
+hardening_auto_updates_remove_unused_dependencies: true
+# E-mail para relatório (exige um MTA instalado). Vazio = sem e-mail.
+hardening_auto_updates_mail: ""
+hardening_auto_updates_mail_report: on-change
