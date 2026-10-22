@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+# Gerado pela role hardening. Alterações manuais serão sobrescritas.
+# Este arquivo é lido antes do resto da configuração: no sshd vale o
+# primeiro valor encontrado, então o que está aqui vence.
+
+Port {{ hardening_ssh_port }}
+
+# --- Autenticação ---
+PermitRootLogin {{ hardening_ssh_permit_root_login }}
+PubkeyAuthentication yes
+PasswordAuthentication {{ 'yes' if hardening_ssh_password_authentication | bool else 'no' }}
+KbdInteractiveAuthentication {{ 'yes' if hardening_ssh_kbd_interactive_authentication | bool else 'no' }}
+PermitEmptyPasswords no
+HostbasedAuthentication no
+IgnoreRhosts yes
+PermitUserEnvironment no
+MaxAuthTries {{ hardening_ssh_max_auth_tries }}
+LoginGraceTime {{ hardening_ssh_login_grace_time }}
+
+# --- Sessão ---
+ClientAliveInterval {{ hardening_ssh_client_alive_interval }}
+ClientAliveCountMax {{ hardening_ssh_client_alive_count_max }}
+X11Forwarding {{ 'yes' if hardening_ssh_x11_forwarding | bool else 'no' }}
+AllowAgentForwarding {{ 'yes' if hardening_ssh_agent_forwarding | bool else 'no' }}
+AllowTcpForwarding {{ hardening_ssh_tcp_forwarding }}
+LogLevel {{ hardening_ssh_log_level }}
+
+# --- Criptografia ---
+KexAlgorithms {{ hardening_ssh_kex_effective | join(',') }}
+Ciphers {{ hardening_ssh_ciphers | join(',') }}
+MACs {{ hardening_ssh_macs | join(',') }}

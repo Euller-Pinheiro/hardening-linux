@@ -1,0 +1,22 @@
+---
+- name: Confere se o sistema é suportado
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == 'Ubuntu'
+      - ansible_facts['distribution_major_version'] is version('24', '>=')
+    fail_msg: >-
+      Esta role foi escrita e testada para Ubuntu 24.04 ou mais novo.
+      Sistema encontrado: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}.
+    quiet: true
+
+- name: Endurece o SSH
+  ansible.builtin.include_tasks: ssh.yml
+  when: hardening_ssh_enabled | bool
+
+- name: Instala e configura o fail2ban
+  ansible.builtin.include_tasks: fail2ban.yml
+  when: hardening_fail2ban_enabled | bool
+
+- name: Liga as atualizações automáticas de segurança
+  ansible.builtin.include_tasks: auto_updates.yml
+  when: hardening_auto_updates_enabled | bool

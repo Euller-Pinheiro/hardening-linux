@@ -1,0 +1,7 @@
+---
+# Exemplo de uso: ansible-playbook -i inventario.ini site.yml
+- name: Endurece servidores Ubuntu
+  hosts: all
+  become: true
+  roles:
+    - role: hardening

@@ -1,0 +1,40 @@
+---
+# Proteção contra o erro mais caro do hardening de SSH: desligar o login por
+# senha num servidor em que ninguém tem chave instalada. Roda ANTES de
+# qualquer mudança no sshd.
+- name: SSH | Define os usuários conferidos na checagem anti-trancamento
+  ansible.builtin.set_fact:
+    hardening_ssh_lockout_users: >-
+      {{ hardening_ssh_admin_users
+         if hardening_ssh_admin_users | length > 0
+         else [ansible_user | default(ansible_facts['env']['SUDO_USER'] | default(ansible_facts['user_id'], true), true)] }}
+
+- name: SSH | Lê o diretório home dos usuários administradores
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  loop: "{{ hardening_ssh_lockout_users }}"
+  register: hardening_ssh_lockout_passwd
+
+- name: SSH | Procura o authorized_keys de cada usuário
+  ansible.builtin.stat:
+    path: "{{ item.ansible_facts.getent_passwd[item.item][4] }}/.ssh/authorized_keys"
+  loop: "{{ hardening_ssh_lockout_passwd.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  register: hardening_ssh_lockout_keys
+
+- name: SSH | Impede desligar a senha sem chave autorizada
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.size > 0
+    fail_msg: >-
+      O usuário '{{ item.item.item }}' não tem chave em {{ item.item.ansible_facts.getent_passwd[item.item.item][4] }}/.ssh/authorized_keys.
+      Desligar o login por senha agora trancaria esse usuário fora do servidor.
+      Instale uma chave (ssh-copy-id) e teste o login com ela antes; ou ajuste
+      hardening_ssh_admin_users / hardening_ssh_lockout_check.
+    quiet: true
+  loop: "{{ hardening_ssh_lockout_keys.results }}"
+  loop_control:
+    label: "{{ item.item.item }}"

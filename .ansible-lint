@@ -1,0 +1,8 @@
+---
+profile: production
+
+exclude_paths:
+  - .cache/
+  - .github/
+
+warn_list: []

@@ -1,0 +1,28 @@
+---
+# python3-systemd permite ao fail2ban ler o journal direto, sem depender de
+# /var/log/auth.log (que nem sempre existe em instalações mínimas).
+- name: Fail2ban | Instala os pacotes
+  ansible.builtin.apt:
+    name:
+      - fail2ban
+      - python3-systemd
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Configuração em jail.d/*.local: o jail.conf do pacote fica intacto e é
+# atualizado pelo apt sem conflito.
+- name: Fail2ban | Grava a jail do SSH
+  ansible.builtin.template:
+    src: fail2ban_hardening.local.j2
+    dest: /etc/fail2ban/jail.d/00-hardening.local
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reinicia o fail2ban
+
+- name: Fail2ban | Habilita e inicia o serviço
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    enabled: true
+    state: started

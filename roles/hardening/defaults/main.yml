@@ -1,0 +1,99 @@
+---
+# Liga ou desliga cada bloco de controles. Cada bloco vive em tasks/<bloco>.yml
+# e pode ser desligado sem afetar os outros.
+hardening_ssh_enabled: true
+hardening_fail2ban_enabled: true
+hardening_auto_updates_enabled: true
+
+# ---------------------------------------------------------------------------
+# SSH
+# ---------------------------------------------------------------------------
+# Porta do sshd. Trocar a porta reduz ruído nos logs, mas NÃO é controle de
+# segurança: varreduras acham a porta nova em minutos.
+hardening_ssh_port: 22
+
+# "prohibit-password" deixa o root entrar só com chave. Depois de criar um
+# usuário administrador com sudo, prefira "no".
+hardening_ssh_permit_root_login: prohibit-password
+
+# Login por senha continua LIGADO por padrão, de propósito: desligar sem ter
+# uma chave instalada tranca o administrador fora do servidor. Para desligar,
+# defina false; a role confere antes se há chave autorizada (veja abaixo).
+hardening_ssh_password_authentication: true
+
+# Antes de desligar a senha, confere se cada usuário administrador tem
+# ~/.ssh/authorized_keys com conteúdo. Só desligue a checagem se as chaves
+# vierem de outro lugar (ex.: AuthorizedKeysCommand, certificados SSH).
+hardening_ssh_lockout_check: true
+
+# Usuários conferidos na checagem acima. Vazio = o usuário da conexão
+# (ansible_user, ou quem chamou o sudo).
+hardening_ssh_admin_users: []
+
+# keyboard-interactive é outro caminho para senha via PAM. Só ligue se usar
+# segundo fator (ex.: TOTP) configurado no PAM.
+hardening_ssh_kbd_interactive_authentication: false
+
+hardening_ssh_max_auth_tries: 3
+hardening_ssh_login_grace_time: 30
+hardening_ssh_client_alive_interval: 300
+hardening_ssh_client_alive_count_max: 2
+hardening_ssh_x11_forwarding: false
+hardening_ssh_agent_forwarding: false
+# "local" mantém túneis "ssh -L" (acesso a um banco pelo SSH, por exemplo) e
+# bloqueia "ssh -R", que expõe portas da máquina do cliente no servidor.
+# Valores aceitos: "yes", "no", "local", "remote".
+hardening_ssh_tcp_forwarding: local
+# VERBOSE registra a impressão digital da chave usada em cada login: útil
+# para auditoria e para saber qual chave revogar.
+hardening_ssh_log_level: VERBOSE
+
+# Algoritmos modernos, todos suportados desde o OpenSSH 8.5 (Ubuntu 22.04+).
+hardening_ssh_kex_algorithms:
+  - sntrup761x25519-sha512@openssh.com
+  - curve25519-sha256
+  - curve25519-sha256@libssh.org
+# Troca de chaves pós-quântica: só entra se o OpenSSH do servidor for 9.9 ou
+# mais novo (Ubuntu 26.04). Nomes desconhecidos fariam o sshd recusar a config.
+hardening_ssh_kex_algorithms_pq:
+  - mlkem768x25519-sha256
+hardening_ssh_kex_algorithms_pq_min_version: "9.9"
+hardening_ssh_ciphers:
+  - chacha20-poly1305@openssh.com
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+hardening_ssh_macs:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
+  - umac-128-etm@openssh.com
+
+# ---------------------------------------------------------------------------
+# fail2ban
+# ---------------------------------------------------------------------------
+# Quantas falhas, em qual janela de tempo, geram bloqueio, e por quanto tempo.
+hardening_fail2ban_maxretry: 5
+hardening_fail2ban_findtime: 10m
+hardening_fail2ban_bantime: 1h
+# Reincidentes ficam bloqueados por tempo crescente (1h, 2h, 4h...) até o teto.
+hardening_fail2ban_bantime_increment: true
+hardening_fail2ban_bantime_maxtime: 1w
+# Endereços que nunca são bloqueados. Coloque aqui o IP fixo do escritório ou
+# da VPN de administração; assim um erro de senha não bloqueia quem administra.
+hardening_fail2ban_ignoreip: []
+
+# ---------------------------------------------------------------------------
+# Atualizações automáticas de segurança (unattended-upgrades)
+# ---------------------------------------------------------------------------
+# Reinício automático fica DESLIGADO por padrão: reiniciar um servidor de
+# produção é decisão do administrador. Ligue se o servidor tolera reinício
+# na janela abaixo (ex.: um nó atrás de balanceador).
+hardening_auto_updates_reboot: false
+hardening_auto_updates_reboot_time: "04:00"
+hardening_auto_updates_remove_unused_kernels: true
+hardening_auto_updates_remove_unused_dependencies: true
+# E-mail para relatório (exige um MTA instalado). Vazio = sem e-mail.
+hardening_auto_updates_mail: ""
+hardening_auto_updates_mail_report: on-change
