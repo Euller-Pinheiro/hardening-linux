@@ -13,3 +13,7 @@
   ansible.builtin.include_tasks: ssh.yml
   when: hardening_ssh_enabled | bool
 
+- name: Instala e configura o fail2ban
+  ansible.builtin.include_tasks: fail2ban.yml
+  when: hardening_fail2ban_enabled | bool
+

@@ -70,3 +70,17 @@ hardening_ssh_macs:
   - hmac-sha2-256-etm@openssh.com
   - umac-128-etm@openssh.com
 
+# ---------------------------------------------------------------------------
+# fail2ban
+# ---------------------------------------------------------------------------
+# Quantas falhas, em qual janela de tempo, geram bloqueio, e por quanto tempo.
+hardening_fail2ban_maxretry: 5
+hardening_fail2ban_findtime: 10m
+hardening_fail2ban_bantime: 1h
+# Reincidentes ficam bloqueados por tempo crescente (1h, 2h, 4h...) até o teto.
+hardening_fail2ban_bantime_increment: true
+hardening_fail2ban_bantime_maxtime: 1w
+# Endereços que nunca são bloqueados. Coloque aqui o IP fixo do escritório ou
+# da VPN de administração; assim um erro de senha não bloqueia quem administra.
+hardening_fail2ban_ignoreip: []
+

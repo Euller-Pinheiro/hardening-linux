@@ -24,3 +24,7 @@
     name: ssh.service
     state: restarted
 
+- name: Reinicia o fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    state: restarted
