@@ -1,0 +1,136 @@
+---
+# Testes de comportamento: conferem o efeito real da role no sistema, não
+# apenas se os arquivos existem.
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    # sshd -T imprime a configuração EFETIVA, depois de aplicar todos os
+    # Include e a regra do "primeiro valor vence". É o que o sshd usa de fato.
+    - name: SSH | Lê a configuração efetiva do sshd
+      ansible.builtin.command: /usr/sbin/sshd -T
+      register: verify_sshd
+      changed_when: false
+
+    - name: SSH | Confere os controles principais
+      ansible.builtin.assert:
+        that:
+          # OpenSSH < 10 mostra o nome antigo "without-password".
+          - verify_sshd.stdout is search('(?m)^permitrootlogin (prohibit-password|without-password)$')
+          - "'passwordauthentication yes' in verify_sshd.stdout_lines"
+          - "'kbdinteractiveauthentication no' in verify_sshd.stdout_lines"
+          - "'permitemptypasswords no' in verify_sshd.stdout_lines"
+          - "'maxauthtries 3' in verify_sshd.stdout_lines"
+          - "'x11forwarding no' in verify_sshd.stdout_lines"
+          - "'allowagentforwarding no' in verify_sshd.stdout_lines"
+          - "'allowtcpforwarding local' in verify_sshd.stdout_lines"
+          - "'loglevel VERBOSE' in verify_sshd.stdout_lines"
+          - "'ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr' in verify_sshd.stdout_lines"
+        quiet: true
+
+    - name: SSH | Confere que nenhum algoritmo fraco foi aceito
+      ansible.builtin.assert:
+        that:
+          - verify_sshd.stdout is not search('diffie-hellman-group1-sha1|diffie-hellman-group14-sha1|ecdh-sha2-nistp')
+          - verify_sshd.stdout is not search('hmac-sha1|-cbc')
+        quiet: true
+
+    - name: SSH | Lê a versão do OpenSSH
+      ansible.builtin.command: ssh -V
+      register: verify_ssh_version
+      changed_when: false
+
+    - name: SSH | Confere a troca de chaves pós-quântica conforme a versão
+      vars:
+        verify_openssh: "{{ verify_ssh_version.stderr | regex_search('OpenSSH_([0-9]+\\.[0-9]+)', '\\1') | first }}"
+        verify_kex_line: "{{ verify_sshd.stdout_lines | select('match', '^kexalgorithms ') | first }}"
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('mlkem768x25519-sha256' in verify_kex_line)
+            == (verify_openssh is version('9.9', '>='))
+          - "'sntrup761x25519-sha512@openssh.com' in verify_kex_line"
+        quiet: true
+
+    - name: SSH | Lê o estado dos serviços
+      ansible.builtin.service_facts:
+
+    - name: SSH | Confere que o serviço está rodando
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['ssh.service'].state == 'running'
+        quiet: true
+
+    - name: Fail2ban | Lê o estado da jail do SSH
+      ansible.builtin.command: fail2ban-client status sshd
+      register: verify_f2b
+      changed_when: false
+      retries: 5
+      delay: 2
+      until: verify_f2b.rc == 0
+
+    - name: Fail2ban | Lê a configuração efetiva da jail
+      ansible.builtin.command: "fail2ban-client get sshd {{ item }}"
+      loop:
+        - maxretry
+        - findtime
+        - bantime
+      register: verify_f2b_get
+      changed_when: false
+
+    - name: Fail2ban | Confere limites e backend
+      ansible.builtin.assert:
+        that:
+          - "'Journal matches' in verify_f2b.stdout"
+          - verify_f2b_get.results[0].stdout | trim == '5'
+          - verify_f2b_get.results[1].stdout | trim == '600'
+          - verify_f2b_get.results[2].stdout | trim == '3600'
+        quiet: true
+
+    - name: Atualizações | Lê a configuração efetiva do apt
+      ansible.builtin.command: apt-config dump
+      register: verify_apt
+      changed_when: false
+
+    - name: Atualizações | Confere rotinas diárias e reinício desligado
+      ansible.builtin.assert:
+        that:
+          - "'APT::Periodic::Update-Package-Lists \"1\";' in verify_apt.stdout_lines"
+          - "'APT::Periodic::Unattended-Upgrade \"1\";' in verify_apt.stdout_lines"
+          - "'Unattended-Upgrade::Automatic-Reboot \"false\";' in verify_apt.stdout_lines"
+          - "'Unattended-Upgrade::Remove-Unused-Kernel-Packages \"true\";' in verify_apt.stdout_lines"
+        quiet: true
+
+    - name: Atualizações | Confere a simulação do unattended-upgrades
+      ansible.builtin.command: unattended-upgrade --dry-run
+      changed_when: false
+
+    # A proteção anti-trancamento: pedir para desligar a senha sem nenhuma
+    # chave autorizada TEM de falhar, e o sshd precisa continuar como estava.
+    - name: Trancamento | Tenta desligar a senha sem chave autorizada
+      block:
+        - name: Trancamento | Executa a role com senha desligada
+          ansible.builtin.include_role:
+            name: hardening
+          vars:
+            hardening_ssh_password_authentication: false
+            hardening_ssh_admin_users: [nobody]
+            hardening_fail2ban_enabled: false
+            hardening_auto_updates_enabled: false
+
+        - name: Trancamento | A role deveria ter falhado
+          ansible.builtin.set_fact:
+            verify_lockout_blocked: false
+      rescue:
+        - name: Trancamento | Registra que a role bloqueou a mudança
+          ansible.builtin.set_fact:
+            verify_lockout_blocked: true
+
+    - name: Trancamento | Confere o bloqueio e a configuração intacta
+      ansible.builtin.command: /usr/sbin/sshd -T
+      register: verify_sshd_after
+      changed_when: false
+      failed_when: >-
+        not verify_lockout_blocked
+        or 'passwordauthentication yes' not in verify_sshd_after.stdout_lines

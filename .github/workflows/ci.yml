@@ -26,3 +26,22 @@ jobs:
         run: yamllint .
       - name: ansible-lint
         run: ansible-lint
+
+  molecule:
+    name: Molecule (Ubuntu 24.04 e 26.04)
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instala ferramentas
+        run: |
+          pip install -r requirements-dev.txt
+          ansible-galaxy collection install -r requirements.yml
+      - name: molecule test
+        run: molecule test
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"

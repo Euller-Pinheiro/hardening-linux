@@ -1,0 +1,13 @@
+# Imagem de teste: Ubuntu "limpo" + systemd como PID 1, para que serviços
+# (sshd, fail2ban) subam de verdade dentro do contêiner, como num servidor.
+FROM {{ item.image }}
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends systemd systemd-sysv python3 python3-apt sudo ca-certificates \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /lib/systemd/system/multi-user.target.wants/getty.target
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/lib/systemd/systemd"]
