@@ -1,2 +1,26 @@
 ---
-# Handlers são preenchidos pelos blocos de controle.
+- name: Reinicia o SSH
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: true
+  notify:
+    - Recarrega o systemd para o socket do SSH
+    - Reinicia o socket do SSH
+    - Reinicia o serviço do SSH
+
+# No Ubuntu 24.04+ o SSH sobe por ativação de socket: a porta vem do
+# ssh.socket, que um gerador do systemd monta a partir do sshd_config.
+- name: Recarrega o systemd para o socket do SSH
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Reinicia o socket do SSH
+  ansible.builtin.systemd_service:
+    name: ssh.socket
+    state: restarted
+  when: ansible_facts.services['ssh.socket'].status | default('') == 'enabled'
+
+- name: Reinicia o serviço do SSH
+  ansible.builtin.systemd_service:
+    name: ssh.service
+    state: restarted
+

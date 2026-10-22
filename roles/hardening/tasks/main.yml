@@ -8,3 +8,8 @@
       Esta role foi escrita e testada para Ubuntu 24.04 ou mais novo.
       Sistema encontrado: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}.
     quiet: true
+
+- name: Endurece o SSH
+  ansible.builtin.include_tasks: ssh.yml
+  when: hardening_ssh_enabled | bool
+

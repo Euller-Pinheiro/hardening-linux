@@ -1,0 +1,77 @@
+---
+- name: SSH | Valida as opções informadas
+  ansible.builtin.assert:
+    that:
+      - hardening_ssh_permit_root_login in ['yes', 'no', 'prohibit-password', 'forced-commands-only']
+      - hardening_ssh_tcp_forwarding in ['yes', 'no', 'local', 'remote']
+      - hardening_ssh_port | int > 0 and hardening_ssh_port | int < 65536
+      - hardening_ssh_max_auth_tries | int > 0
+    fail_msg: Valor inválido em hardening_ssh_permit_root_login, hardening_ssh_tcp_forwarding, hardening_ssh_port ou hardening_ssh_max_auth_tries.
+    quiet: true
+
+- name: SSH | Confere chaves antes de desligar o login por senha
+  ansible.builtin.include_tasks: ssh_preflight.yml
+  when:
+    - not hardening_ssh_password_authentication | bool
+    - hardening_ssh_lockout_check | bool
+
+- name: SSH | Instala o servidor OpenSSH
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# No Ubuntu 24.04+ o SSH costuma subir por ativação de socket (ssh.socket).
+- name: SSH | Verifica se o SSH usa ativação por socket
+  ansible.builtin.service_facts:
+
+- name: SSH | Lê a versão do OpenSSH
+  ansible.builtin.command: ssh -V
+  register: hardening_ssh_version_output
+  changed_when: false
+
+- name: SSH | Calcula a lista de algoritmos de troca de chaves
+  vars:
+    hardening_ssh_version: >-
+      {{ hardening_ssh_version_output.stderr | regex_search('OpenSSH_([0-9]+\.[0-9]+)', '\1') | first }}
+  ansible.builtin.set_fact:
+    hardening_ssh_kex_effective: >-
+      {{ (hardening_ssh_kex_algorithms_pq
+          if hardening_ssh_version is version(hardening_ssh_kex_algorithms_pq_min_version, '>=')
+          else []) + hardening_ssh_kex_algorithms }}
+
+# O Ubuntu lê /etc/ssh/sshd_config.d/*.conf logo no começo do sshd_config, e
+# no sshd vale o PRIMEIRO valor encontrado para cada opção. Um arquivo
+# chamado 00-... vence o restante, inclusive o 50-cloud-init.conf.
+- name: SSH | Confere se o sshd_config inclui o diretório sshd_config.d
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^Include\s+/etc/ssh/sshd_config\.d/\*\.conf'
+    line: Include /etc/ssh/sshd_config.d/*.conf
+    insertbefore: BOF
+    state: present
+  notify: Reinicia o SSH
+
+- name: SSH | Garante o diretório de separação de privilégios
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: SSH | Grava a configuração endurecida
+  ansible.builtin.template:
+    src: sshd_hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reinicia o SSH
+
+- name: SSH | Mantém o serviço habilitado
+  ansible.builtin.systemd_service:
+    name: ssh
+    enabled: true
