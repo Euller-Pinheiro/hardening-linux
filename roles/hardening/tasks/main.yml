@@ -1,0 +1,10 @@
+---
+- name: Confere se o sistema é suportado
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == 'Ubuntu'
+      - ansible_facts['distribution_major_version'] is version('24', '>=')
+    fail_msg: >-
+      Esta role foi escrita e testada para Ubuntu 24.04 ou mais novo.
+      Sistema encontrado: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}.
+    quiet: true

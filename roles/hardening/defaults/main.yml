@@ -1,0 +1,6 @@
+---
+# Liga ou desliga cada bloco de controles. Cada bloco vive em tasks/<bloco>.yml
+# e pode ser desligado sem afetar os outros.
+hardening_ssh_enabled: true
+hardening_fail2ban_enabled: true
+hardening_auto_updates_enabled: true

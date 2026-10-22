@@ -1,0 +1,7 @@
+# Ferramentas de desenvolvimento e CI (versões mínimas testadas).
+ansible-core>=2.17
+ansible-lint>=25.0
+yamllint>=1.35
+molecule>=25.0
+molecule-plugins[docker]>=23.5
+docker>=7.0

@@ -1,0 +1,7 @@
+---
+# Coleções usadas pelos testes (Molecule + Docker). A role em si só usa ansible.builtin.
+collections:
+  - name: community.docker
+    version: ">=3.10.2"
+  - name: ansible.posix
+    version: ">=1.4.0"
